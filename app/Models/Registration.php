@@ -19,6 +19,7 @@ class Registration extends Model
         'organization',
         'reason',
         'status',
+        'cv_path',
     ];
 
     public function user()

@@ -13,11 +13,11 @@ class UserSeeder extends Seeder
         $userData = [
             [
                 'name'     => 'Danis',
-                'username' => 'danis',    // optional
+                'username' => 'danis',
                 'email'    => 'm.daniswara.m@gmail.com',
                 'password' => Hash::make('123456'),
                 'role'     => 'admin',
-                'ormawaID' => null,       // BIARKAN KOSONG DULU
+                'ormawaID' => null,
             ],
             [
                 'name'     => 'Kato',
@@ -39,7 +39,7 @@ class UserSeeder extends Seeder
 
         foreach ($userData as $val) {
             User::updateOrCreate(
-                ['email' => $val['email']],   // unique constraint
+                ['email' => $val['email']],
                 $val
             );
         }

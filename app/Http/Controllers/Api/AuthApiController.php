@@ -18,12 +18,14 @@ class AuthApiController extends BaseApiController
      */
     public function login(Request $request)
     {
+        // 1) VALIDASI INPUT
         $validator = Validator::make($request->all(), [
             'email'    => 'required|email',
             'password' => 'required|string',
         ]);
 
         if ($validator->fails()) {
+            // HTTP 422
             return $this->error('Validasi gagal', 422, $validator->errors());
         }
 
@@ -31,10 +33,11 @@ class AuthApiController extends BaseApiController
         $ip    = $request->ip();
         $key   = 'login|' . $email . '|' . $ip;
 
-        // Cek blokir
+        // 2) CEK RATE LIMIT
         if (RateLimiter::tooManyAttempts($key, 5)) {
             $seconds = RateLimiter::availableIn($key);
 
+            // HTTP 429
             return $this->error(
                 'Terlalu banyak percobaan login. Coba lagi dalam ' . $seconds . ' detik.',
                 429,
@@ -42,18 +45,21 @@ class AuthApiController extends BaseApiController
             );
         }
 
-        if (! Auth::attempt($request->only('email', 'password'))) {
-            // salah → tambah hit
-            RateLimiter::hit($key, 60); // blokir 60 detik
+        // 3) CEK CREDENTIAL
+        // Pastikan guard-nya benar. Umumnya pakai guard 'web' untuk Sanctum
+        if (! Auth::guard('web')->attempt($request->only('email', 'password'))) {
+            // salah → tambah hit, blokir 60 detik
+            RateLimiter::hit($key, 60);
 
+            // HTTP 401
             return $this->error('Email atau password salah.', 401);
         }
 
-        // Berhasil login
+        // 4) BERHASIL LOGIN
         RateLimiter::clear($key);
 
         /** @var \App\Models\User $user */
-        $user  = $request->user();
+        $user  = Auth::guard('web')->user();  // atau $request->user() kalau guard default = web
         $token = $user->createToken('api-token')->plainTextToken;
 
         return $this->success([

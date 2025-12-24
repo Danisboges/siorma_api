@@ -12,9 +12,9 @@ class Post extends Model
     protected $table = 'posts';
     protected $primaryKey = 'postID';
 
-    // Jika PK bukan auto-increment integer, sesuaikan:
-    // public $incrementing = true;
-    // protected $keyType = 'int';
+    // jika postID auto increment int:
+    public $incrementing = true;
+    protected $keyType = 'int';
 
     protected $fillable = [
         'ormawaID',
@@ -25,16 +25,19 @@ class Post extends Model
         'status',
     ];
 
+    // posts.ormawaID -> ormawa.id
     public function ormawa()
     {
-        return $this->belongsTo(Ormawa::class, 'ormawaID');
+        return $this->belongsTo(Ormawa::class, 'ormawaID', 'id');
     }
 
+    // posts.userID -> users.id
     public function user()
     {
-        return $this->belongsTo(User::class, 'userID');
+        return $this->belongsTo(User::class, 'userID', 'id');
     }
 
+    // registrations.post_id -> posts.postID (sesuai model Anda)
     public function registrations()
     {
         return $this->hasMany(Registration::class, 'post_id', 'postID');

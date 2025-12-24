@@ -11,25 +11,15 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'username',
         'email',
         'password',
         'role',
-        'ormawaID',
+        'ormawaID', // FK -> ormawa.id (primary/main ormawa)
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
@@ -48,26 +38,33 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
-    // Relasi ke posts (FK: userID di tabel posts)
+    // posts: posts.userID -> users.id
     public function posts()
     {
-        return $this->hasMany(Post::class, 'userID');
+        return $this->hasMany(Post::class, 'userID', 'id');
     }
 
-    // Ormawa utama (main ormawa)
+    // main ormawa: users.ormawaID -> ormawa.id
     public function mainOrmawa()
     {
-        return $this->belongsTo(Ormawa::class, 'ormawaID');
+        return $this->belongsTo(Ormawa::class, 'ormawaID', 'id');
     }
 
-    // Semua ormawa yang diikuti user (via pivot ormawa_user)
+    // membership ormawa via pivot: ormawa_user.user_id -> users.id
+    //                              ormawa_user.ormawaID -> ormawa.id
     public function ormawas()
     {
         return $this->belongsToMany(
             Ormawa::class,
-            'ormawa_user',   // nama tabel pivot
-            'user_id',       // FK ke users.id
-            'ormawaID'       // FK ke ormawa.id
+            'ormawa_user',
+            'user_id',
+            'ormawaID'
         );
+    }
+
+    // kalau Anda ingin relasi "ormawa yang dibuat/dipimpin oleh user" (ormawa.user_id)
+    public function createdOrmawas()
+    {
+        return $this->hasMany(Ormawa::class, 'user_id', 'id');
     }
 }

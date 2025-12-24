@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\Post;
 use App\Models\Registration;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class RegistrationApiController extends BaseApiController
 {
@@ -32,6 +33,7 @@ class RegistrationApiController extends BaseApiController
             'phone'        => 'required|string|max:20',
             'organization' => 'nullable|string|max:255',
             'reason'       => 'nullable|string',
+            'cv'           => 'required|file|mimes:pdf,doc,docx|max:2048',
         ]);
 
         // Cek apakah sudah pernah daftar (opsional, tapi biasanya penting)
@@ -41,6 +43,12 @@ class RegistrationApiController extends BaseApiController
 
         if ($existing) {
             return $this->error('Anda sudah terdaftar pada event ini.', 409);
+        }
+
+        $cvPath = null;
+
+        if ($request->hasFile('cv')) {
+            $cvPath = $request->file('cv')->store('cv', 'public');
         }
 
         $registration = Registration::create([
@@ -53,6 +61,7 @@ class RegistrationApiController extends BaseApiController
             'organization' => $validated['organization'] ?? null,
             'reason'       => $validated['reason'] ?? null,
             'status'       => 'pending',
+            'cv_path'      => $cvPath,
         ]);
 
         $registration->load(['user', 'post']);
@@ -123,4 +132,58 @@ class RegistrationApiController extends BaseApiController
 
         return $this->success(null, 'Pendaftaran berhasil dihapus');
     }
+    public function adminViewCv(Request $request, $id)
+{
+    if ($request->user()->role !== 'admin') {
+        return $this->error('Akses hanya untuk admin.', 403);
+    }
+
+    $reg = Registration::find($id);
+    if (! $reg) {
+        return $this->error('Registration tidak ditemukan', 404);
+    }
+
+    if (! $reg->cv_path) {
+        return $this->error('CV belum diupload', 404);
+    }
+
+    $disk = Storage::disk('public');
+
+    if (! $disk->exists($reg->cv_path)) {
+        return $this->error('File CV tidak ditemukan di storage', 404);
+    }
+
+    $fullPath = $disk->path($reg->cv_path);
+    return response()->file($fullPath);
+}
+
+public function adminDownloadCv(Request $request, $id)
+{
+    if ($request->user()->role !== 'admin') {
+        return $this->error('Akses hanya untuk admin.', 403);
+    }
+
+    $reg = Registration::find($id);
+    if (! $reg) {
+        return $this->error('Registration tidak ditemukan', 404);
+    }
+
+    if (! $reg->cv_path) {
+        return $this->error('CV belum diupload', 404);
+    }
+
+    $disk = Storage::disk('public');
+
+    if (! $disk->exists($reg->cv_path)) {
+        return $this->error('File CV tidak ditemukan di storage', 404);
+    }
+
+    $fullPath = $disk->path($reg->cv_path);
+    $ext = pathinfo($reg->cv_path, PATHINFO_EXTENSION);
+    $filename = 'CV_' . ($reg->nim ?? $reg->id) . ($ext ? ".{$ext}" : '');
+
+    return response()->download($fullPath, $filename);
+}
+
+
 }

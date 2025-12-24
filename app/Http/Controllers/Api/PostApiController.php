@@ -93,29 +93,33 @@ class PostApiController extends BaseApiController
      */
     public function update(Request $request, $postID)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Akses hanya untuk admin.', 403);
         }
 
         $post = Post::where('postID', $postID)->first();
-
         if (! $post) {
             return $this->error('Post tidak ditemukan', 404);
         }
 
         $validated = $request->validate([
-            'ormawaID'    => 'sometimes|required|exists:ormawa,id',
             'title'       => 'sometimes|required|string|max:255',
             'description' => 'sometimes|required|string',
-            'posterPath'  => 'sometimes|nullable|string|max:255',
             'status'      => 'sometimes|required|in:draft,published',
+            'poster'      => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
+
+        if ($request->hasFile('poster')) {
+            $path = $request->file('poster')->store('posters', 'public');
+            $validated['posterPath'] = $path;
+        }
 
         $post->update($validated);
         $post->load(['user', 'ormawa']);
 
         return $this->success($post, 'Post berhasil diperbarui');
     }
+
 
     /**
      * DELETE /api/admin/posts/{postID}

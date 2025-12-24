@@ -10,11 +10,11 @@ class Ormawa extends Model
 {
     use HasFactory, SoftDeletes;
 
-    // Tabelnya bernama 'ormawa'
     protected $table = 'ormawa';
+    protected $primaryKey = 'id';
 
     protected $fillable = [
-        'user_id',          // creator / penanggung jawab utama
+        'user_id',       // PIC/creator (optional)
         'name',
         'photo_path',
         'type_ormawa',
@@ -23,26 +23,38 @@ class Ormawa extends Model
         'description',
     ];
 
-    // User creator (yang buat data ormawa ini)
-    public function user()
+    public function getRouteKeyName()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return 'id';
     }
 
-    // Semua user yang terhubung ke ormawa ini (via pivot ormawa_user)
-    public function users()
+    // PIC/creator: ormawa.user_id -> users.id
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
+    }
+
+    // members via pivot: ormawa_user.ormawaID -> ormawa.id
+    //                    ormawa_user.user_id  -> users.id
+    public function members()
     {
         return $this->belongsToMany(
             User::class,
-            'ormawa_user',   // nama tabel pivot
-            'ormawaID',      // FK di pivot -> ormawa.id
-            'user_id'        // FK di pivot -> users.id
+            'ormawa_user',
+            'ormawaID',
+            'user_id'
         );
     }
 
-    // Post yang dimiliki ormawa ini
+    // posts: posts.ormawaID -> ormawa.id
     public function posts()
     {
-        return $this->hasMany(Post::class, 'ormawaID');
+        return $this->hasMany(Post::class, 'ormawaID', 'id');
+    }
+
+    // users yang menjadikan ormawa ini sebagai mainOrmawa: users.ormawaID -> ormawa.id
+    public function primaryUsers()
+    {
+        return $this->hasMany(User::class, 'ormawaID', 'id');
     }
 }
