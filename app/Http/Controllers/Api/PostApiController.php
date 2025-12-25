@@ -9,6 +9,22 @@ use Illuminate\Http\Request;
 class PostApiController extends BaseApiController
 {
     /**
+     * Tambahkan poster_url agar FE bisa langsung menampilkan gambar
+     */
+    private function withPosterUrl($post)
+    {
+        if (!$post) return $post;
+
+        $path = $post->posterPath ?? null;
+
+        $post->poster_url = $path
+            ? asset('storage/' . ltrim(str_replace('public/', '', $path), '/'))
+            : null;
+
+        return $post;
+    }
+
+    /**
      * GET /api/posts
      * List post/event untuk user (published saja)
      */
@@ -18,6 +34,10 @@ class PostApiController extends BaseApiController
             ->where('status', 'published')
             ->latest('created_at')
             ->get();
+
+        $posts->transform(function ($p) {
+            return $this->withPosterUrl($p);
+        });
 
         return $this->success($posts, 'Daftar posts (published)');
     }
@@ -36,6 +56,8 @@ class PostApiController extends BaseApiController
             return $this->error('Post tidak ditemukan', 404);
         }
 
+        $post = $this->withPosterUrl($post);
+
         return $this->success($post, 'Detail post');
     }
 
@@ -53,6 +75,10 @@ class PostApiController extends BaseApiController
             ->latest('created_at')
             ->get();
 
+        $posts->transform(function ($p) {
+            return $this->withPosterUrl($p);
+        });
+
         return $this->success($posts, 'Daftar semua posts (admin)');
     }
 
@@ -63,29 +89,34 @@ class PostApiController extends BaseApiController
      * - ormawaID, userID, title, description, posterPath, status
      */
     public function store(Request $request)
-    {
-        if ($request->user()->role !== 'admin') {
-            return $this->error('Akses hanya untuk admin.', 403);
-        }
-
-        $validated = $request->validate([
-            'ormawaID'    => 'required|exists:ormawa,id',
-            // atau sesuaikan kalau pk ormawa bukan 'id'
-            'title'       => 'required|string|max:255',
-            'description' => 'required|string',
-            'posterPath'  => 'nullable|string|max:255',
-            'status'      => 'required|in:draft,published',
-        ]);
-
-        // userID diambil dari user login admin
-        $validated['userID'] = $request->user()->id;
-
-        $post = Post::create($validated);
-
-        $post->load(['user', 'ormawa']);
-
-        return $this->success($post, 'Post berhasil dibuat', 201);
+{
+    if ($request->user()->role !== 'admin') {
+        return $this->error('Akses hanya untuk admin.', 403);
     }
+
+    $validated = $request->validate([
+        'ormawaID'    => 'required|exists:ormawa,id',
+        'title'       => 'required|string|max:255',
+        'description' => 'required|string',
+        'status'      => 'required|in:draft,published',
+        'poster'      => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+    ]);
+
+    $validated['userID'] = $request->user()->id;
+
+    // ⬇️ INI KUNCI UTAMA
+    if ($request->hasFile('poster')) {
+        $path = $request->file('poster')->store('posters', 'public');
+        $validated['posterPath'] = $path;
+    }
+
+    $post = Post::create($validated);
+    $post->load(['user', 'ormawa']);
+    $post = $this->withPosterUrl($post);
+
+    return $this->success($post, 'Post berhasil dibuat', 201);
+}
+
 
     /**
      * PUT /api/admin/posts/{postID}
@@ -116,10 +147,10 @@ class PostApiController extends BaseApiController
 
         $post->update($validated);
         $post->load(['user', 'ormawa']);
+        $post = $this->withPosterUrl($post);
 
         return $this->success($post, 'Post berhasil diperbarui');
     }
-
 
     /**
      * DELETE /api/admin/posts/{postID}
